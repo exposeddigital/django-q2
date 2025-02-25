@@ -718,20 +718,52 @@ def scheduler(broker: Broker = None):
                     except (SyntaxError, ValueError):
                         # else use the kwargs syntax
                         try:
-                            parsed_kwargs = (
-                                ast.parse(f"f({s.kwargs})").body[0].value.keywords
+                            parsed_body_value = (
+                                ast.parse(f"f({s.kwargs})").body[0].value
                             )
+                            # NOTE: this expression renders Python < 3.6 unusable but who cares
+                            if args := parsed_body_value.args:
+                                arg_names = ','.join(arg.id for arg in args)
+                                raise ValueError(
+                                    f'These keywords ({arg_names}) resolved to positional arguments'
+                                )
                             kwargs = {
                                 kwarg.arg: ast.literal_eval(kwarg.value)
-                                for kwarg in parsed_kwargs
+                                for kwarg in parsed_body_value.keywords
                             }
-                        except (SyntaxError, ValueError):
+                        except (SyntaxError, ValueError) as error:
+                            logger.warning(
+                                _(
+                                    "%(process_name)s failed to parse `kwargs`, won't account them "
+                                    "[%(schedule)s]; reason: %(reason)s"
+                                )
+                                % {
+                                    "process_name": current_process().name,
+                                    "schedule": s.name or s.id,
+                                    # NOTE: `reason` may be uninformative when error was thrown by
+                                    # `ast.parse` or `ast.literal_eval`
+                                    "reason": f'{error.__class__.__name__}: {error}'
+                                }
+                            )
                             kwargs = {}
                 if s.args:
-                    args = ast.literal_eval(s.args)
-                    # single value won't eval to tuple, so:
-                    if type(args) != tuple:
-                        args = (args,)
+                    try:
+                        args = ast.literal_eval(s.args)
+                        # single value won't eval to tuple, so:
+                        if isinstance(args, tuple):
+                            args = (args,)
+                    except (SyntaxError, ValueError):
+                        logger.error(
+                            _(
+                                "%(process_name)s failed to parse task arguments, won't schedule "
+                                "[%(schedule)s]"
+                            )
+                            % {
+                                "process_name": current_process().name,
+                                "schedule": s.name or s.id,
+                            }
+                        )
+                        continue
                 q_options = kwargs.get("q_options", {})
                 if s.intended_date_kwarg:
                     kwargs[s.intended_date_kwarg] = s.next_run.isoformat()
