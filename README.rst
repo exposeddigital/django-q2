@@ -1,3 +1,7 @@
+This project was forked to include
+ - (fixed) don't fail entire cluster on a single typo in task `args`; notify when `kwargs` are failed to parse thus task won't receive them
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 A multiprocessing distributed task queue for Django
 ---------------------------------------------------
 
