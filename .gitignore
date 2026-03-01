@@ -72,3 +72,4 @@ node_modules
 /dq
 /venv/
 .local
+.docker-*.stamp
